@@ -1,0 +1,15 @@
+# Frontend
+
+## Setup Instructions
+
+1. Install dependencies:
+```bash
+npm install
+```
+
+2. Run development server:
+```bash
+npm run dev
+```
+
+The development server will start and you can view the application in your browser
