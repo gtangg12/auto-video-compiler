@@ -1,10 +1,19 @@
-import React, { useState, useRef } from 'react';
-import { MessageSquare, Upload, Send, Video, X, Folder, Link as LinkIcon } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { MessageSquare, Upload, Send, Video, X, Folder, Link as LinkIcon, CheckCircle, Flame, Eye, Calendar } from 'lucide-react';
 
 interface Message {
   type: 'user' | 'assistant';
   content: string;
   videos?: string[];
+}
+
+interface ViralVideo {
+  id: string;
+  embedUrl: string;
+  views: number;
+  shares: number;
+  likes: number;
+  date: string;
 }
 
 type Step = 'initial' | 'reference' | 'chat';
@@ -15,13 +24,51 @@ function App() {
   const [input, setInput] = useState('');
   const [isDragging, setIsDragging] = useState(false);
   const [selectedVideos, setSelectedVideos] = useState<File[]>([]);
-  const [referenceVideos, setReferenceVideos] = useState<File[]>([]);
+  const [selectedViralVideo, setSelectedViralVideo] = useState<ViralVideo | null>(null);
   const [channelUrl, setChannelUrl] = useState('');
+  const [isChannelLinked, setIsChannelLinked] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
-  const referenceFileInputRef = useRef<HTMLInputElement>(null);
-  const referenceFolderInputRef = useRef<HTMLInputElement>(null);
   const FLASK_BACKEND_URL = 'http://localhost:5000';
+
+  const viralVideos: ViralVideo[] = [
+    {
+      id: '1',
+      embedUrl: 'https://www.tiktok.com/embed/v2/7466562464654691614',
+      views: 2500000,
+      shares: 150000,
+      likes: 450000,
+      date: '2024-03-15',
+    },
+    {
+      id: '2',
+      embedUrl: 'https://www.tiktok.com/embed/v2/7466562464654691614',
+      views: 1800000,
+      shares: 120000,
+      likes: 380000,
+      date: '2024-03-14',
+    },
+    {
+      id: '3',
+      embedUrl: 'https://www.tiktok.com/embed/v2/7466562464654691614',
+      views: 1200000,
+      shares: 90000,
+      likes: 250000,
+      date: '2024-03-13',
+    }
+  ];
+
+  useEffect(() => {
+    // Load TikTok embed script
+    const script = document.createElement('script');
+    script.src = 'https://www.tiktok.com/embed.js';
+    script.async = true;
+    document.body.appendChild(script);
+
+    return () => {
+      document.body.removeChild(script);
+    };
+  }, []);
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -62,11 +109,7 @@ function App() {
     }
 
     if (videos.length > 0) {
-      if (isReference) {
-        setReferenceVideos(videos);
-      } else {
-        setSelectedVideos(videos);
-      }
+      setSelectedVideos(videos);
     }
   };
 
@@ -97,9 +140,9 @@ function App() {
     });
   };
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>, isReference: boolean = false) => {
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
-      processItems(Array.from(e.target.files), isReference);
+      processItems(Array.from(e.target.files));
     }
   };
 
@@ -128,13 +171,20 @@ function App() {
   const handleChannelSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (channelUrl.trim()) {
+      setIsChannelLinked(true);
+    }
+  };
+
+  const handleContinueToReference = () => {
+    if (isChannelLinked || selectedVideos.length > 0) {
       setStep('reference');
       setMessages([
         {
           type: 'assistant',
-          content: 'Channel linked successfully! Now, please select reference content that you want to use as a style guide.',
+          content: `${isChannelLinked ? 'Channel linked' : 'Content uploaded'} successfully! Now, please select reference content that you want to use as a style guide.`,
         },
       ]);
+      setSelectedVideos([]);
     }
   };
 
@@ -151,39 +201,39 @@ function App() {
     }
   };
 
-  const handleReferenceSelect = () => {
-    if (referenceVideos.length > 0) {
-      setStep('chat');
-      setMessages(prev => [...prev, {
-        type: 'assistant',
-        content: 'Great! Reference content selected. You can now start chatting and uploading videos for processing.',
-      }]);
-      setReferenceVideos([]);
-    }
+  const handleViralVideoSelect = (video: ViralVideo) => {
+    setSelectedViralVideo(video);
+    setStep('chat');
+    setMessages(prev => [...prev, {
+      type: 'assistant',
+      content: 'Preferences received. You can now start chatting and uploading videos for processing.',
+    }]);
   };
 
-  const removeVideo = (index: number, isReference: boolean = false) => {
-    if (isReference) {
-      setReferenceVideos(prev => prev.filter((_, i) => i !== index));
-    } else {
-      setSelectedVideos(prev => prev.filter((_, i) => i !== index));
+  const formatViews = (views: number) => {
+    if (views >= 1000000) {
+      return `${(views / 1000000).toFixed(1)}M`;
     }
+    if (views >= 1000) {
+      return `${(views / 1000).toFixed(1)}K`;
+    }
+    return views.toString();
   };
 
-  const removeAllVideos = (isReference: boolean = false) => {
-    if (isReference) {
-      setReferenceVideos([]);
-    } else {
-      setSelectedVideos([]);
-    }
+  const removeVideo = (index: number) => {
+    setSelectedVideos(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const removeAllVideos = () => {
+    setSelectedVideos([]);
   };
 
   const renderInitialStep = () => (
     <div className="flex-1 flex items-center justify-center p-8">
-      <div className="max-w-2xl w-full space-y-8">
+      <div className="max-w-4xl w-full space-y-8">
         <div className="text-center">
           <h2 className="text-3xl font-bold text-gray-900 mb-4">Get Started</h2>
-          <p className="text-gray-600 mb-8">Choose how you want to proceed</p>
+          <p className="text-gray-600 mb-8">Link your channel and/or upload your content to continue</p>
         </div>
         
         <div className="grid md:grid-cols-2 gap-6">
@@ -193,19 +243,29 @@ function App() {
                 <LinkIcon className="h-6 w-6 text-blue-600" />
               </div>
               <h3 className="text-xl font-semibold text-center">Link Your Channel</h3>
-              <input
-                type="url"
-                value={channelUrl}
-                onChange={(e) => setChannelUrl(e.target.value)}
-                placeholder="Enter channel URL"
-                className="w-full rounded-lg border border-gray-300 p-3 focus:outline-none focus:border-blue-500"
-                required
-              />
+              <div className="relative">
+                <input
+                  type="url"
+                  value={channelUrl}
+                  onChange={(e) => setChannelUrl(e.target.value)}
+                  placeholder="Enter channel URL"
+                  className={`w-full rounded-lg border ${isChannelLinked ? 'border-green-500' : 'border-gray-300'} p-3 focus:outline-none focus:border-blue-500`}
+                  required
+                />
+                {isChannelLinked && (
+                  <CheckCircle className="absolute right-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-green-500" />
+                )}
+              </div>
               <button
                 type="submit"
-                className="w-full py-3 px-4 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+                disabled={isChannelLinked}
+                className={`w-full py-3 px-4 rounded-lg ${
+                  isChannelLinked 
+                    ? 'bg-green-500 cursor-default'
+                    : 'bg-blue-600 hover:bg-blue-700'
+                } text-white transition-colors`}
               >
-                Link Channel
+                {isChannelLinked ? 'Channel Linked' : 'Link Channel'}
               </button>
             </form>
           </div>
@@ -246,7 +306,7 @@ function App() {
                 </div>
               </div>
               {selectedVideos.length > 0 && (
-                <>
+                <div className="space-y-4">
                   <div className="grid grid-cols-2 gap-2">
                     {selectedVideos.map((video, index) => (
                       <div key={index} className="relative">
@@ -268,91 +328,95 @@ function App() {
                     onClick={handleContentUpload}
                     className="w-full py-3 px-4 rounded-lg bg-green-600 text-white hover:bg-green-700 transition-colors"
                   >
-                    Upload Content
+                    Continue with Selected Videos
                   </button>
-                </>
+                </div>
               )}
             </div>
           </div>
         </div>
+
+        {/* Continue button */}
+        {(isChannelLinked || selectedVideos.length > 0) && (
+          <div className="flex justify-center">
+            <button
+              onClick={handleContinueToReference}
+              className="px-8 py-4 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-lg font-semibold"
+            >
+              Continue to Reference Selection
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
 
   const renderReferenceStep = () => (
     <div className="flex-1 flex flex-col p-8">
-      <div className="max-w-4xl w-full mx-auto space-y-8">
+      <div className="max-w-6xl w-full mx-auto space-y-8">
         <div className="text-center">
-          <h2 className="text-3xl font-bold text-gray-900 mb-4">Select Reference Content</h2>
-          <p className="text-gray-600">Upload videos that will serve as style guides for processing your content</p>
+          <h2 className="text-3xl font-bold text-gray-900 mb-4">Top Recommended Viral Content</h2>
+          <p className="text-gray-600">Select one of these trending videos as your style reference</p>
         </div>
 
-        <div
-          className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
-            isDragging ? 'border-blue-500 bg-blue-50' : 'border-gray-300'
-          }`}
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          onDrop={(e) => handleDrop(e, true)}
-        >
-          {referenceVideos.length > 0 ? (
-            <div className="space-y-6">
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {referenceVideos.map((video, index) => (
-                  <div key={index} className="relative">
-                    <video
-                      src={URL.createObjectURL(video)}
-                      controls
-                      className="w-full h-32 object-cover rounded"
-                    />
+        <div className="grid md:grid-cols-3 gap-8">
+          {viralVideos.map((video, index) => (
+            <div 
+              key={video.id}
+              className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow"
+            >
+              <div className="relative w-full" style={{ height: '400px' }}>
+                <iframe
+                  src={video.embedUrl}
+                  className="absolute inset-0 w-full h-full"
+                  allowFullScreen
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                />
+              </div>
+              <div className="p-4 border-t border-gray-100">
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="flex items-center">
+                      <Eye className="h-4 w-4 mr-1 text-gray-500" />
+                      <span className="text-gray-600">{formatViews(video.views)} views</span>
+                    </div>
+                    <div className="flex items-center">
+                      <Calendar className="h-4 w-4 mr-1 text-gray-500" />
+                      <span className="text-gray-600">{video.date}</span>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="flex items-center">
+                      <svg className="h-4 w-4 mr-1 text-gray-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
+                        <polyline points="16 6 12 2 8 6" />
+                        <line x1="12" y1="2" x2="12" y2="15" />
+                      </svg>
+                      <span className="text-gray-600">{formatViews(video.shares)} shares</span>
+                    </div>
+                    <div className="flex items-center">
+                      <svg className="h-4 w-4 mr-1 text-gray-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3" />
+                      </svg>
+                      <span className="text-gray-600">{formatViews(video.likes)} likes</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between pt-2">
+                    <div className="flex items-center">
+                      <Flame className="h-5 w-5 text-orange-500 mr-2" />
+                      <span className="font-semibold text-gray-900">Trending #{index + 1}</span>
+                    </div>
                     <button
-                      onClick={() => removeVideo(index, true)}
-                      className="absolute top-2 right-2 p-1 bg-red-500 text-white rounded-full hover:bg-red-600"
+                      onClick={() => handleViralVideoSelect(video)}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                     >
-                      <X className="h-4 w-4" />
+                      Select
                     </button>
                   </div>
-                ))}
-              </div>
-              <div className="flex justify-center space-x-4">
-                <button
-                  onClick={() => removeAllVideos(true)}
-                  className="px-6 py-3 bg-red-500 text-white rounded-lg hover:bg-red-600"
-                >
-                  Remove All
-                </button>
-                <button
-                  onClick={handleReferenceSelect}
-                  className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                >
-                  Use as Reference
-                </button>
+                </div>
               </div>
             </div>
-          ) : (
-            <div className="space-y-4">
-              <Video className="mx-auto h-12 w-12 text-gray-400" />
-              <p className="text-gray-500">
-                Drag and drop reference videos here or
-              </p>
-              <div className="flex justify-center space-x-4">
-                <button
-                  onClick={() => referenceFileInputRef.current?.click()}
-                  className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 flex items-center space-x-2"
-                >
-                  <Upload className="h-4 w-4" />
-                  <span>Browse File</span>
-                </button>
-                <button
-                  onClick={() => referenceFolderInputRef.current?.click()}
-                  className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 flex items-center space-x-2"
-                >
-                  <Folder className="h-4 w-4" />
-                  <span>Browse Folder</span>
-                </button>
-              </div>
-            </div>
-          )}
+          ))}
         </div>
       </div>
     </div>
@@ -436,10 +500,6 @@ function App() {
               </div>
             ) : (
               <div className="space-y-4">
-                <Video className="mx-auto h-12 w-12 text-gray-400" />
-                <p className="text-gray-500">
-                  Drag and drop your video here or
-                </p>
                 <div className="flex justify-center space-x-4">
                   <button
                     type="button"
@@ -495,8 +555,9 @@ function App() {
             setMessages([]);
             setStep('initial');
             setSelectedVideos([]);
-            setReferenceVideos([]);
+            setSelectedViralVideo(null);
             setChannelUrl('');
+            setIsChannelLinked(false);
           }}
           className="w-full py-2 px-4 rounded bg-gray-800 hover:bg-gray-700 transition-colors"
         >
@@ -522,23 +583,6 @@ function App() {
         type="file"
         ref={folderInputRef}
         onChange={(e) => handleFileSelect(e)}
-        accept="video/*"
-        webkitdirectory=""
-        directory=""
-        multiple
-        className="hidden"
-      />
-      <input
-        type="file"
-        ref={referenceFileInputRef}
-        onChange={(e) => handleFileSelect(e, true)}
-        accept="video/*"
-        className="hidden"
-      />
-      <input
-        type="file"
-        ref={referenceFolderInputRef}
-        onChange={(e) => handleFileSelect(e, true)}
         accept="video/*"
         webkitdirectory=""
         directory=""

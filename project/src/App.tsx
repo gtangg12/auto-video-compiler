@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { MessageSquare, Upload, Send, Video, X } from 'lucide-react';
+import { MessageSquare, Upload, Send, Video, X, Folder } from 'lucide-react';
 
 interface Message {
   type: 'user' | 'assistant';
@@ -12,7 +12,10 @@ function App() {
   const [input, setInput] = useState('');
   const [isDragging, setIsDragging] = useState(false);
   const [videoPreview, setVideoPreview] = useState<string | null>(null);
+  const [selectedVideos, setSelectedVideos] = useState<File[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const folderInputRef = useRef<HTMLInputElement>(null);
+  const FLASK_BACKEND_URL = 'http://localhost:5000';
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -27,18 +30,67 @@ function App() {
     e.preventDefault();
     setIsDragging(false);
     
-    const file = e.dataTransfer.files[0];
-    if (file && file.type.startsWith('video/')) {
-      const videoUrl = URL.createObjectURL(file);
-      setVideoPreview(videoUrl);
+    const items = Array.from(e.dataTransfer.items);
+    processItems(items);
+  };
+
+  const processItems = async (items: DataTransferItem[] | File[]) => {
+    const videos: File[] = [];
+    
+    for (const item of items) {
+      if (item instanceof File) {
+        if (item.type.startsWith('video/')) {
+          videos.push(item);
+        }
+      } else if (item.kind === 'file') {
+        const entry = item.webkitGetAsEntry();
+        if (entry?.isDirectory) {
+          await processDirectory(entry as FileSystemDirectoryEntry, videos);
+        } else if (entry?.isFile) {
+          const file = await getFileFromEntry(entry as FileSystemFileEntry);
+          if (file.type.startsWith('video/')) {
+            videos.push(file);
+          }
+        }
+      }
+    }
+
+    if (videos.length > 0) {
+      setSelectedVideos(videos);
+      setVideoPreview(URL.createObjectURL(videos[0]));
     }
   };
 
+  const processDirectory = async (dirEntry: FileSystemDirectoryEntry, videos: File[]) => {
+    const entries = await readDirectory(dirEntry);
+    for (const entry of entries) {
+      if (entry.isFile) {
+        const file = await getFileFromEntry(entry as FileSystemFileEntry);
+        if (file.type.startsWith('video/')) {
+          videos.push(file);
+        }
+      } else if (entry.isDirectory) {
+        await processDirectory(entry as FileSystemDirectoryEntry, videos);
+      }
+    }
+  };
+
+  const readDirectory = (dirEntry: FileSystemDirectoryEntry): Promise<FileSystemEntry[]> => {
+    return new Promise((resolve) => {
+      const reader = dirEntry.createReader();
+      reader.readEntries((entries) => resolve(entries));
+    });
+  };
+
+  const getFileFromEntry = (fileEntry: FileSystemFileEntry): Promise<File> => {
+    return new Promise((resolve) => {
+      fileEntry.file((file) => resolve(file));
+    });
+  };
+
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file && file.type.startsWith('video/')) {
-      const videoUrl = URL.createObjectURL(file);
-      setVideoPreview(videoUrl);
+    if (e.target.files) {
+      processItems(Array.from(e.target.files));
     }
   };
 
@@ -54,20 +106,28 @@ function App() {
       setMessages([...messages, newMessage]);
       setInput('');
       setVideoPreview(null);
+      setSelectedVideos([]);
       
-      // Simulate assistant response
-      setTimeout(() => {
-        const assistantMessage: Message = {
-          type: 'assistant',
-          content: 'I received your message and video. How can I help you with it?'
-        };
-        setMessages(prev => [...prev, assistantMessage]);
-      }, 1000);
+      const assistantMessage: Message = {
+        type: 'assistant',
+        content: 'Here is the processed video:',
+        video: `${FLASK_BACKEND_URL}/video`
+      };
+      setMessages(prev => [...prev, assistantMessage]);
     }
   };
 
   const removeVideo = () => {
     setVideoPreview(null);
+    setSelectedVideos([]);
+  };
+
+  const showNextVideo = () => {
+    const currentIndex = selectedVideos.findIndex(
+      video => videoPreview === URL.createObjectURL(video)
+    );
+    const nextIndex = (currentIndex + 1) % selectedVideos.length;
+    setVideoPreview(URL.createObjectURL(selectedVideos[nextIndex]));
   };
 
   return (
@@ -109,6 +169,7 @@ function App() {
                     src={message.video}
                     controls
                     className="mb-2 rounded max-w-md"
+                    crossOrigin="anonymous"
                   />
                 )}
                 <p>{message.content}</p>
@@ -138,25 +199,46 @@ function App() {
                     className="max-h-48 rounded"
                   />
                   <button
+                    type="button"
                     onClick={removeVideo}
                     className="absolute top-2 right-2 p-1 bg-red-500 text-white rounded-full hover:bg-red-600"
                   >
                     <X className="h-4 w-4" />
                   </button>
+                  {selectedVideos.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={showNextVideo}
+                      className="absolute bottom-2 right-2 p-2 bg-blue-500 text-white rounded-full hover:bg-blue-600"
+                    >
+                      Next
+                    </button>
+                  )}
                 </div>
               ) : (
-                <div className="space-y-2">
+                <div className="space-y-4">
                   <Video className="mx-auto h-12 w-12 text-gray-400" />
                   <p className="text-gray-500">
-                    Drag and drop your video heree or{' '}
+                    Drag and drop your video heree or
+                  </p>
+                  <div className="flex justify-center space-x-4">
                     <button
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
-                      className="text-blue-500 hover:text-blue-600"
+                      className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 flex items-center space-x-2"
                     >
-                      browse
+                      <Upload className="h-4 w-4" />
+                      <span>Browse File</span>
                     </button>
-                  </p>
+                    <button
+                      type="button"
+                      onClick={() => folderInputRef.current?.click()}
+                      className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 flex items-center space-x-2"
+                    >
+                      <Folder className="h-4 w-4" />
+                      <span>Browse Folder</span>
+                    </button>
+                  </div>
                 </div>
               )}
               <input
@@ -164,6 +246,16 @@ function App() {
                 ref={fileInputRef}
                 onChange={handleFileSelect}
                 accept="video/*"
+                className="hidden"
+              />
+              <input
+                type="file"
+                ref={folderInputRef}
+                onChange={handleFileSelect}
+                accept="video/*"
+                webkitdirectory=""
+                directory=""
+                multiple
                 className="hidden"
               />
             </div>
