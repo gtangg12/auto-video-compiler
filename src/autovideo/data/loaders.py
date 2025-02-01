@@ -1,3 +1,5 @@
+import os
+import subprocess
 from pathlib import Path
 
 import cv2
@@ -37,8 +39,42 @@ def read(path: Path | str):
             yield frame
     finally:
         cap.release()
-    
+
+
+def concat(paths: list[Path | str], output: Path | str):
+    """
+    Concatenates multiple MP4 videos using FFmpeg without re-encoding.
+
+    Args:
+        paths (list[Path | str]): List of video file paths to concatenate.
+        output (Path | str): Output concatenated video file.
+
+    Returns:
+        None
+    """
+    paths = [str(path) for path in paths]
+
+    # Create a temporary list file for ffmpeg
+    list_file = "concat_list.txt"
+    with open(list_file, "w") as f:
+        for path in paths:
+            f.write(f"file '{path}'\n")
+
+    # Run FFmpeg to concatenate the videos
+    ffmpeg_command = [
+        "ffmpeg", "-f", "concat", "-safe", "0", "-i", list_file,
+        "-c", "copy", str(output)
+    ]
+    subprocess.run(ffmpeg_command, check=True)
+
+    # Remove temporary file
+    os.remove(list_file)
+
+    print(f"Concatenated video saved to: {output}")
+
 
 if __name__ == '__main__':
-    for i, frame in enumerate(read("assets/sample.mp4")):
-        print(i)
+    #for i, frame in enumerate(read("assets/sample.mp4")):
+    #    print(i)
+    
+    concat(["assets/sample.mp4", "assets/sample.mp4"], "assets/sample_concat.mp4")
