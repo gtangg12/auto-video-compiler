@@ -1,10 +1,12 @@
 import pickle
+import json
 from pathlib import Path
 
 import torch
+from omegaconf import OmegaConf
 
 from autovideo.data.process import compute_embed
-from autovideo.models.clip import ModelClip
+from autovideo.models.clip import ModelClip, DEFAULT_NEGATIVES
 
 
 class SearchEngine:
@@ -13,39 +15,61 @@ class SearchEngine:
     def __init__(self, path: Path | str, topk=5):
         """
         """
-        self.model = ModelClip(OmegaConf.create({'name': 'ViT-B/32', 'temperature': 0.1}))
-        with open(path, "rb") as f:
-            self.embeds_dict = pickle.load(f)
-        self.embeds = torch.stack([v for v in embeds_dict.values()])
-        self.filenames = list(embed_dict.keys())
+        self.model = ModelClip(OmegaConf.create({'name': 'ViT-B/16', 'temperature': 0.1}))
+        self.topk = topk
+        with open(Path(path) / "embeds.pkl", "rb") as f:
+            embeds_dict = pickle.load(f)
+        self.embeds = []
+        self.embed_filenames = []
+        for k, v in embeds_dict.items():
+            self.embed_filenames.append(k)
+            self.embeds.append(v)
+        self.embeds = torch.stack(self.embeds)
 
-    def search_text(text: str) -> list[str]:
+    def search_text(self, text: str) -> list[str]:
         """
         """
         embed = self.model.encode_text(text)
-        return [self.filenames[i] for i in self.search(embed, topk)]
+        return [self.embed_filenames[i] for i in self.search(embed, self.topk)]
 
-    def search_video(path: Path | str) -> list[str]:
+    def search_video(self, path: Path | str) -> list[str]:
         """
         """
-        embed = compute_embed(path, self.model)
-        return [self.filenames[i] for i in self.search(embed, topk)]
+        embed = compute_embed(path, self.model).unsqueeze(0)
+        return [self.embed_filenames[i] for i in self.search(embed, self.topk)]
 
-    def search(self, query_embed: torch.Tensor, topk: int) -> list[int]:
+    def search(self, query_embed: torch.Tensor, topk: int, negatives: list[str] = DEFAULT_NEGATIVES) -> list[int]:
         """
-        Helper function to perform nearest neighbor search.
+        Perform nearest neighbor search, ensuring that negative embeddings are accounted for.
 
         Args:
             query_embed (torch.Tensor): Query embedding of shape (1, D).
-            top_k (int): Number of top matches to return.
+            topk (int): Number of top matches to return.
+            negatives (list[str]): List of negative text prompts.
 
         Returns:
             list[int]: Indices of the top-k most relevant videos.
         """
         query_embed = query_embed / query_embed.norm(dim=-1, keepdim=True)
-        self.embeds = self.embeds / self.embeds.norm(dim=-1, keepdim=True)
+        embeds_norm = self.embeds / self.embeds.norm(dim=-1, keepdim=True)
 
-        similarity = torch.matmul(self.embeds, query_embed.T).squeeze(1)
+        similarity = torch.matmul(embeds_norm, query_embed.T).squeeze(1)
 
-        topk_values, topk_indices = torch.topk(similarity, topk)
-        return topk_indices.tolist()
+        negative_embeddings = self.model.encode_text(negatives)
+        negative_similarity = torch.matmul(embeds_norm, negative_embeddings.T).mean(dim=1)
+
+        refined_similarity = similarity - negative_similarity
+
+        topk_indices = torch.topk(refined_similarity, topk, largest=True).indices
+        return [i for i in topk_indices if refined_similarity[i] > 0]
+    
+
+if __name__ == '__main__':
+    engine = SearchEngine("assets/data")
+    print(engine.search_text("mountain"))
+
+    with open("assets/data-reference/metadata.json", "r") as file:
+        metadata = json.load(file)
+    for k, _ in metadata.items():
+        print(k)
+        print(engine.search_video(f"assets/data-reference/{k}"))
