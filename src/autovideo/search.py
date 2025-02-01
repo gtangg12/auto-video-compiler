@@ -32,13 +32,13 @@ class SearchEngine:
         embed = self.model.encode_text(text)
         return [self.embed_filenames[i] for i in self.search(embed, self.topk)]
 
-    def search_video(self, path: Path | str) -> list[str]:
+    def search_video(self, path: Path | str, threshold=0.51) -> list[str]:
         """
         """
         embed = compute_embed(path, self.model).unsqueeze(0)
-        return [self.embed_filenames[i] for i in self.search(embed, self.topk)]
+        return [self.embed_filenames[i] for i in self.search(embed, self.topk, threshold=threshold)]
 
-    def search(self, query_embed: torch.Tensor, topk: int, negatives: list[str] = DEFAULT_NEGATIVES) -> list[int]:
+    def search(self, query_embed: torch.Tensor, topk: int, negatives: list[str] = DEFAULT_NEGATIVES, threshold=0) -> list[int]:
         """
         Perform nearest neighbor search, ensuring that negative embeddings are accounted for.
 
@@ -59,9 +59,10 @@ class SearchEngine:
         negative_similarity = torch.matmul(embeds_norm, negative_embeddings.T).mean(dim=1)
 
         refined_similarity = similarity - negative_similarity
+        print(refined_similarity)
 
         topk_indices = torch.topk(refined_similarity, topk, largest=True).indices
-        return [i for i in topk_indices if refined_similarity[i] > 0]
+        return [i for i in topk_indices if refined_similarity[i] > threshold]
     
 
 if __name__ == '__main__':
@@ -73,4 +74,3 @@ if __name__ == '__main__':
     for k, _ in metadata.items():
         print(k)
         print(engine.search_video(f"assets/data-reference/{k}"))
-    
