@@ -1,6 +1,7 @@
 .DS_Store
 assets/data/
 assets/data-reference/
+assets/data-generated/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

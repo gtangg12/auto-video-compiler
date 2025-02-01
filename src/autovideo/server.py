@@ -1,4 +1,6 @@
 import os
+import time
+import random
 from pathlib import Path
 
 from flask import Flask, send_file, jsonify, request
@@ -7,6 +9,7 @@ from glob import glob
 
 from autovideo.data.loaders import concat
 from autovideo.search import SearchEngine
+from autovideo.bgm import add_looping_music
 
 
 app = Flask(__name__)
@@ -40,10 +43,21 @@ def search_video(path: Path | str) -> list[Path | str]:
 
 
 def concat_videos(paths: list[Path | str]) -> Path | str:
-    output = Path(paths[0]).parent.parent / 'data-generated'
-    os.makedirs(output, exist_ok=True)
+    output = f'assets/data-generated/{time.time()}'
     concat(paths, output)
     return output
+
+
+def add_bgm(path: str):
+    output = f'assets/data-generated/{time.time()}'
+    bgms = glob.glob('assets/bgm')
+    bgm_path = bgms[random.randint(0, len(bgms))]
+    add_looping_music(path, bgm_path, output)
+    return output
+
+
+def llm_audio():
+    pass
 
 
 if __name__ == '__main__':
