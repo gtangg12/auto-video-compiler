@@ -11,7 +11,7 @@ function App() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isDragging, setIsDragging] = useState(false);
-  const [videoPreview, setVideoPreview] = useState<string | null>(null);
+  const [videoPreview, setVideoPreview] = useState<string | null>('http://127.0.0.1:5000/video');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -148,7 +148,7 @@ function App() {
                 <div className="space-y-2">
                   <Video className="mx-auto h-12 w-12 text-gray-400" />
                   <p className="text-gray-500">
-                    Drag and drop your video here or{' '}
+                    Dragg and drop your video here or{' '}
                     <button
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
