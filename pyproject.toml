@@ -12,7 +12,13 @@ classifiers = [
     "Programming Language :: Python",
 ]
 dependencies = [
+    "numpy",
+    "omegaconf",
+    "openai",
+    "openai-clip",
     "opencv-python",
+    "torch",
+    "torchvision",
 ]
 
 [project.scripts]
