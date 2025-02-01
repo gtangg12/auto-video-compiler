@@ -12,6 +12,7 @@ classifiers = [
     "Programming Language :: Python",
 ]
 dependencies = [
+    "opencv-python",
 ]
 
 [project.scripts]
