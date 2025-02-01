@@ -38,7 +38,7 @@ class ModelClip:
     """
     EMBEDDING_DIM = 512
 
-    def __init__(self, config: OmegaConf, device='cuda'):
+    def __init__(self, config: OmegaConf, device='cpu'):
         """
         """
         self.config = config
@@ -65,7 +65,7 @@ class ModelClip:
     def encode_image(self, image: torch.Tensor) -> torch.Tensor:
         """
         """
-        image = self.transform(image).cuda()
+        image = self.transform(image).to(self.device)
         with torch.no_grad():
             embedding = self.model.encode_image(image)
         return norm(embedding)
@@ -75,14 +75,14 @@ class ModelClip:
         """
         if isinstance(text, str):
             text = [text]
-        tokens = clip.tokenize(text).cuda()
+        tokens = clip.tokenize(text).to(self.device)
         with torch.no_grad():
             embedding = self.model.encode_text(tokens)
         return norm(embedding)
 
 
 if __name__ == '__main__':
-    model = ModelClip(OmegaConf.create({'name': 'ViT-B/32', 'temperature': 0.1}))
+    model = ModelClip(OmegaConf.create({'name': 'ViT-B/16', 'temperature': 0.1}))
     image = Image.open('assets/sample.jpeg')
     image = np.array(image)
     print(model(image, 'cat'))
