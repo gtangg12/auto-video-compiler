@@ -81,7 +81,7 @@ def create_videos():
             video_files = search_video("assets/data-reference/IMG_2528.mp4")
             print("video_files from search_video: ", video_files)
         else:
-            video_files = search_text(text)
+            video_files = search_text(" ".join(text.split(" ")[1:]))
             print("video_files from search_text: ", video_files)
     else:
         # Default to using all videos in the data directory if no specific search
