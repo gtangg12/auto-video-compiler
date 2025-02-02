@@ -52,17 +52,22 @@ def concat_videos(paths: list[Path | str], output_path: str):
     concat(paths, output_path)
 
 def add_bgm(path: Path | str):
-    output = f'assets/data-generated/{time.time()}'
-    bgms = glob.glob('assets/bgm')
-    bgm_path = bgms[random.randint(0, len(bgms))]
+    output = f'assets/data-generated/{time.time()}.mp4'
+    bgms = glob('assets/bgm/*')
+    bgm_path = bgms[random.randint(0, len(bgms) - 1)]
     add_bgm_to_video(path, bgm_path, output)
     return output
 
-def llm(path: Path | str):
+def summarize(path: Path | str):
     return engine_summarize.summarize(path)
+
+
+current_video = None
+
 
 @app.route('/create_video', methods=['POST'])
 def create_videos():
+    global current_video
     print("received request")
     data = request.get_json()
     print("data: ", data)
@@ -85,6 +90,11 @@ def create_videos():
         else:
             video_files = search_text(" ".join(text.split(" ")[1:]))
             print("video_files from search_text: ", video_files)
+    elif "bgm" in text:
+        video_files = [add_bgm(current_video)]
+    # elif "evaluate" in text:
+    #     summarize(current_video)
+    #     # return text
     else:
         # Default to using all videos in the data directory if no specific search
         video_files = [os.path.join(data_dir, f) for f in os.listdir(data_dir) if f.endswith('.mp4')]
@@ -100,6 +110,7 @@ def create_videos():
     # Ensure output path has .mp4 extension
     timestamp = str(time.time()).replace('.', '_')
     output_filename = f'output_{timestamp}.mp4'
+    current_video = f"assets/data-generated/{output_filename}"
     concatenated_video_path = os.path.join(generated_dir, output_filename)
     
     try:
@@ -127,46 +138,6 @@ def create_videos():
             "error": str(e),
             "message": "Failed to create video"
         }), 500
-
-
-@app.route('/bgm', methods=['POST'])
-def bgm():
-    print("received request")
-    data = request.get_json()
-    print("data: ", data)
-    text = data.get('data', 'No text provided')
-    print("Received text:", text)
-
-    assets_dir = os.path.join(os.path.dirname(__file__), '../../assets')
-    data_dir = os.path.join(assets_dir, 'data')
-    generated_dir = os.path.join(assets_dir, 'data-generated')
-
-    for directory in [assets_dir, data_dir, generated_dir]:
-        if not os.path.exists(directory):
-            os.makedirs(directory)
-
-    if "bgm" in text:
-        add_bgm() # TODO put path here
-
-
-@app.route('/summarize', methods=['POST'])
-def summarize():
-    print("received request")
-    data = request.get_json()
-    print("data: ", data)
-    text = data.get('data', 'No text provided')
-    print("Received text:", text)
-
-    assets_dir = os.path.join(os.path.dirname(__file__), '../../assets')
-    data_dir = os.path.join(assets_dir, 'data')
-    generated_dir = os.path.join(assets_dir, 'data-generated')
-
-    for directory in [assets_dir, data_dir, generated_dir]:
-        if not os.path.exists(directory):
-            os.makedirs(directory)
-
-    if "evaluate" in text:
-        summarize() # TODO put path here
 
 
 if __name__ == '__main__':
