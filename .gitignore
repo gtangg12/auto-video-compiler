@@ -2,6 +2,7 @@
 assets/data/
 assets/data-reference/
 assets/data-generated/
+assets/bgm/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
