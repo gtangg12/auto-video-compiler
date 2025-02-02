@@ -9,6 +9,7 @@ from glob import glob
 
 from autovideo.data.loaders import concat
 from autovideo.search import SearchEngine
+from autovideo.summarize import SummaryEngine
 from autovideo.bgm import add_bgm_to_video
 
 app = Flask(__name__)
@@ -21,6 +22,7 @@ CORS(app, resources={
 })
 
 engine = SearchEngine("assets/data", topk=5)
+engine_summarize = SummaryEngine()
 
 @app.route('/video/<name>')
 def serve_video(name):
@@ -49,15 +51,15 @@ def concat_videos(paths: list[Path | str], output_path: str):
     os.makedirs(output_dir, exist_ok=True)
     concat(paths, output_path)
 
-def add_bgm(path: str):
+def add_bgm(path: Path | str):
     output = f'assets/data-generated/{time.time()}'
     bgms = glob.glob('assets/bgm')
     bgm_path = bgms[random.randint(0, len(bgms))]
     add_bgm_to_video(path, bgm_path, output)
     return output
 
-def llm_audio():
-    pass
+def llm(path: Path | str):
+    return engine_summarize.summarize(path)
 
 @app.route('/create_video', methods=['POST'])
 def create_videos():
@@ -68,7 +70,7 @@ def create_videos():
     print("Received text:", text)
     
     # Ensure the assets directory exists
-    assets_dir = os.path.join(os.path.dirname(__file__), 'assets')
+    assets_dir = os.path.join(os.path.dirname(__file__), '../../assets')
     data_dir = os.path.join(assets_dir, 'data')
     generated_dir = os.path.join(assets_dir, 'data-generated')
     
@@ -125,6 +127,47 @@ def create_videos():
             "error": str(e),
             "message": "Failed to create video"
         }), 500
+
+
+@app.route('/bgm', methods=['POST'])
+def bgm():
+    print("received request")
+    data = request.get_json()
+    print("data: ", data)
+    text = data.get('data', 'No text provided')
+    print("Received text:", text)
+
+    assets_dir = os.path.join(os.path.dirname(__file__), '../../assets')
+    data_dir = os.path.join(assets_dir, 'data')
+    generated_dir = os.path.join(assets_dir, 'data-generated')
+
+    for directory in [assets_dir, data_dir, generated_dir]:
+        if not os.path.exists(directory):
+            os.makedirs(directory)
+
+    if "bgm" in text:
+        add_bgm() # TODO put path here
+
+
+@app.route('/summarize', methods=['POST'])
+def summarize():
+    print("received request")
+    data = request.get_json()
+    print("data: ", data)
+    text = data.get('data', 'No text provided')
+    print("Received text:", text)
+
+    assets_dir = os.path.join(os.path.dirname(__file__), '../../assets')
+    data_dir = os.path.join(assets_dir, 'data')
+    generated_dir = os.path.join(assets_dir, 'data-generated')
+
+    for directory in [assets_dir, data_dir, generated_dir]:
+        if not os.path.exists(directory):
+            os.makedirs(directory)
+
+    if "evaluate" in text:
+        summarize() # TODO put path here
+
 
 if __name__ == '__main__':
     app.run(debug=True)
