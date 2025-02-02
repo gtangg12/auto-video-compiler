@@ -177,8 +177,8 @@ function App() {
   );
 
   const renderChatStep = () => (
-    <div className="flex-1 flex flex-col">
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+    <div className="flex-1 flex flex-col h-full">
+      <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0">
         {messages.map((message, index) => (
           <div
             key={index}
@@ -220,7 +220,7 @@ function App() {
         ))}
       </div>
 
-      <div className="border-t bg-white p-4">
+      <div className="border-t bg-white p-4 mt-auto">
         <div className="space-y-4">
           {selectedVideos.length > 0 && (
             <div className="space-y-4">
