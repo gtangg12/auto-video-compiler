@@ -72,52 +72,60 @@ const MessageInput: React.FC<MessageInputProps> = ({ onSubmit, onViralRecommenda
           throw new Error(errorData.message || 'Failed to create video');
         }
 
-        // Get the video blob from the response
-        const videoBlob = await response.blob();
-        const videoUrl = URL.createObjectURL(videoBlob);
-        
-        // Submit the message with enhanced video player
-        onSubmit({
-          type: 'assistant',
-          content: (
-            <div className="video-message w-full flex justify-center">
-              <div className="video-container bg-gray-900 rounded-lg overflow-hidden shadow-lg" style={{ width: '150%', maxWidth: '1200px' }}>
-                <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
-                  <video
-                    src={videoUrl}
-                    controls
-                    controlsList="nodownload"
-                    className="absolute inset-0 w-full h-full object-contain"
-                    style={{
-                      backgroundColor: '#000'
-                    }}
-                    playsInline
-                    preload="metadata"
-                  >
-                    <track kind="captions" />
-                    Your browser does not support the video tag.
-                  </video>
-                </div>
-                <div className="p-4 bg-gray-800 text-white">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium">Generated Video</span>
-                    <a
-                      href={videoUrl}
-                      download="generated-video.mp4"
-                      className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors"
+        const contentType = response.headers.get('Content-Type');
+        if (contentType && contentType.includes('text')) {
+          // If the response is text, render it as a message
+          const textResponse = await response.text();
+          onSubmit({
+            type: 'assistant',
+            content: textResponse,
+            videos: []
+          });
+        } else {
+          // Get the video blob from the response
+          const videoBlob = await response.blob();
+          const videoUrl = URL.createObjectURL(videoBlob);
+          
+          // Submit the message with enhanced video player
+          onSubmit({
+            type: 'assistant',
+            content: (
+              <div className="video-message w-full flex justify-center">
+                <div className="video-container bg-gray-900 rounded-lg overflow-hidden shadow-lg" style={{ width: '100%', maxWidth: '1600px' }}>
+                  <div className="relative w-full" style={{ paddingBottom: '75%' }}>
+                    <video
+                      src={videoUrl}
+                      controls
+                      controlsList="nodownload"
+                      className="absolute inset-0 w-full h-full object-contain"
+                      style={{
+                        backgroundColor: '#000'
+                      }}
+                      playsInline
+                      preload="metadata"
                     >
-                      Download
-                    </a>
+                      <track kind="captions" />
+                      Your browser does not support the video tag.
+                    </video>
+                  </div>
+                  <div className="p-4 bg-gray-800 text-white">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">Generated Video</span>
+                      <a
+                        href={videoUrl}
+                        download="generated-video.mp4"
+                        className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors"
+                      >
+                        Download
+                      </a>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          ),
-          videos: [] // Remove the video URL from the videos array since we're using JSX
-        });
-
-
-        
+            ),
+            videos: [] // Remove the video URL from the videos array since we're using JSX
+          });
+        }
       } catch (error) {
         console.error('Error creating video:', error);
         onSubmit({
