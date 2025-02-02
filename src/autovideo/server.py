@@ -21,7 +21,7 @@ CORS(app, resources={
     }
 })
 
-engine = SearchEngine("assets/data", topk=5)
+engine = SearchEngine("assets/data", topk=3)
 engine_summarize = SummaryEngine()
 
 @app.route('/video/<name>')
