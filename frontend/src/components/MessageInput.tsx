@@ -8,7 +8,11 @@ interface Command {
 }
 
 interface MessageInputProps {
-  onSubmit: (message: string | string[] | { type: 'assistant' | 'user'; content: string | string[]; videos?: string[] }) => void;
+  onSubmit: (message: string | string[] | { 
+    type: 'assistant' | 'user'; 
+    content: string | string[] | JSX.Element; 
+    videos?: string[] 
+  }) => void;
   onViralRecommendations: () => void;
 }
 
@@ -72,15 +76,48 @@ const MessageInput: React.FC<MessageInputProps> = ({ onSubmit, onViralRecommenda
         const videoBlob = await response.blob();
         const videoUrl = URL.createObjectURL(videoBlob);
         
-        // Create a message with the video URL
-        const message = {
-          type: 'assistant' as const,
-          content: 'Video created successfully',
-          videos: [videoUrl]
-        };
+        // Submit the message with enhanced video player
+        onSubmit({
+          type: 'assistant',
+          content: (
+            <div className="video-message w-full flex justify-center">
+              <div className="video-container bg-gray-900 rounded-lg overflow-hidden shadow-lg" style={{ width: '150%', maxWidth: '1200px' }}>
+                <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
+                  <video
+                    src={videoUrl}
+                    controls
+                    controlsList="nodownload"
+                    className="absolute inset-0 w-full h-full object-contain"
+                    style={{
+                      backgroundColor: '#000'
+                    }}
+                    playsInline
+                    preload="metadata"
+                  >
+                    <track kind="captions" />
+                    Your browser does not support the video tag.
+                  </video>
+                </div>
+                <div className="p-4 bg-gray-800 text-white">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">Generated Video</span>
+                    <a
+                      href={videoUrl}
+                      download="generated-video.mp4"
+                      className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors"
+                    >
+                      Download
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ),
+          videos: [] // Remove the video URL from the videos array since we're using JSX
+        });
+
+
         
-        // Submit the message with video
-        onSubmit(message);
       } catch (error) {
         console.error('Error creating video:', error);
         onSubmit({
